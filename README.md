@@ -18,7 +18,12 @@ conda env create -f environment.yml
 conda activate llm
 ```
 
-3. If you want to generate text using the Google Cloud, install the gcloud CLI following their [guide](https://cloud.google.com/sdk/docs/install).
+3. For using spacy in experiments 8-10, please execute first
+```bash
+python -m spacy download en_core_web_sm
+```
+
+4. If you want to generate text using the Google Cloud, install the gcloud CLI following their [guide](https://cloud.google.com/sdk/docs/install).
 
 ### Configuring the environment
 
