@@ -1,6 +1,5 @@
 import pandas as pd
 import re
-import openai
 import sys
 import os
 import re
@@ -8,7 +7,8 @@ import argparse
 
 sys.path.append(os.path.dirname(os.getcwd()))
 import config
-openai.api_key = config.OPENAI_API_KEY
+from openai import OpenAI
+client = OpenAI(api_key=config.OPENAI_API_KEY)
 
 DATA_PATH = '../dat/'
 
@@ -25,12 +25,10 @@ args = parser.parse_args()
 if os.path.exists(DATA_PATH + args.output_file):
     egp_samples = pd.read_json(DATA_PATH + args.output_file)
 else:
-    # Read data
     egp = pd.read_csv('../dat/' + args.input_file)
-    egp_samples = egp.groupby('Level', group_keys=False).apply(lambda x: x.sample(args.samples_per_level))
+    egp_samples = egp.groupby('Level', group_keys=False).apply(lambda x: x.sample(args.samples_per_level, random_state=config.SEED))
     egp_samples['Example'] = egp_samples['Example'].str.replace(r"\(.*\)", "", regex=True).str.strip()
 
-    # Create prompts
     def get_prompt(construction):
         return f'Create {args.examples_per_batch} more examples for the grammatical construction on CEFR level {construction["Level"]} in the category "{construction["SuperCategory"]}: {construction["SubCategory"]}" with guideword "{construction["guideword"]}" and the rule: "{construction["Can-do statement"]}"\n\nExamples:\n\n{construction["Example"]}\n\nOutput format:\n1. [EXAMPLE 1]\n2. [EXAMPLE 2]'
 
@@ -48,7 +46,7 @@ def get_examples(construction):
         {"role": "system", "content": "You are an English as a foreign language teacher who is knowledgable about grammar."},
         {"role": "user", "content": construction['prompt']}
     ]
-    response = openai.ChatCompletion.create(model=config.OPENAI_MODEL, messages=messages )
+    response = client.chat.completions.create((model=config.OPENAI_MODEL, messages=messages )
     msg_content = response.choices[0].message.content
     print(f'{msg_content}\n\n')
     lines = msg_content.split('\n')
@@ -57,27 +55,25 @@ def get_examples(construction):
 
     # negative examples
     messages.append({"role": "user", "content": "Rewrite each example with the same content but without using the rule."})
-    response = openai.ChatCompletion.create(model=config.OPENAI_MODEL, messages=messages)
+    response = client.chat.completions.create(model=config.OPENAI_MODEL, messages=messages)
     msg_content = response.choices[0].message.content
     print(f'{msg_content}\n\n')
     lines = msg_content.split('\n')
     negative_examples = [re.sub(r'^\d+\.\s*', '', line).strip() for line in lines if re.match(r'^\d+\.', line)]
     return positive_examples, negative_examples
 
-# Iterate through rows of egp_samples
-# Check if the number of augmented_examples < args.batches * args.examples_per_batch
-# While the above condition is true, generate examples_per_batch more positive and negative examples, append it to the array and save the file
+# iterate through rows of egp_samples
+# check if the number of augmented_examples < args.batches * args.examples_per_batch
+# while the above condition is true, generate examples_per_batch more positive and negative examples, append it to the array and save the file
 for index, row in egp_samples.iterrows():
     while len(row['augmented_examples']) < args.batches * args.examples_per_batch:
         try:
             positive_examples, negative_examples = get_examples(row)
 
-            # Append new examples
             egp_samples.at[index, 'augmented_examples'].extend(positive_examples)
             egp_samples.at[index, 'augmented_negative_examples'].extend(negative_examples)
 
-            # Save progress
-            egp_samples.to_json(DATA_PATH + args.output_file)
+            egp_samples.to_json(DATA_PATH + args.output_file) # not losing progress in case of API errors
         except:
             print(f"Error")
             break
