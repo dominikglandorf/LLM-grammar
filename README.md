@@ -37,7 +37,7 @@ You can reproduce the chronologically enumerated experiments by executing the Ju
 
 ### Data augmentation
 
-To create the augmented dataset, execute the python script `src/generate_examples.py` with the following options:
+To create the augmented dataset, execute the Python script `generate_examples.py` in the directory `src` with the following options:
 ```
 --examples-per-batch EXAMPLES_PER_BATCH
                     Positive and negative examples per batch (default: 20)
@@ -52,6 +52,12 @@ To create the augmented dataset, execute the python script `src/generate_example
 
 ### Training the classification models
 
-### Generate texts
+For the training of the classifiers, execute the Python script `train_classifiers.py` in the directory `src` with the following options:
+```
+  --input-file INPUT_FILE
+                        Name of input file in folder dat (default: egpaugmented.csv)
+  --output-dir OUTPUT_DIR
+                        Name of output directory for model checkpoints (default: models)
+```
 
 ### Evaluate texts with the classification models

@@ -26,7 +26,7 @@ if os.path.exists(DATA_PATH + args.output_file):
     egp_samples = pd.read_json(DATA_PATH + args.output_file)
 else:
     egp = pd.read_csv('../dat/' + args.input_file)
-    egp_samples = egp.groupby('Level', group_keys=False).apply(lambda x: x.sample(args.samples_per_level, random_state=config.SEED))
+    egp_samples = egp.groupby(['Level', 'type'], group_keys=False).apply(lambda x: x.sample(min(len(x), args.samples_per_level), random_state=config.SEED))
     egp_samples['Example'] = egp_samples['Example'].str.replace(r"\(.*\)", "", regex=True).str.strip()
 
     def get_prompt(construction):
@@ -46,7 +46,7 @@ def get_examples(construction):
         {"role": "system", "content": "You are an English as a foreign language teacher who is knowledgable about grammar."},
         {"role": "user", "content": construction['prompt']}
     ]
-    response = client.chat.completions.create((model=config.OPENAI_MODEL, messages=messages )
+    response = client.chat.completions.create(model=config.OPENAI_MODEL, messages=messages)
     msg_content = response.choices[0].message.content
     print(f'{msg_content}\n\n')
     lines = msg_content.split('\n')
