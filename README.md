@@ -59,5 +59,3 @@ For the training of the classifiers, execute the Python script `train_classifier
   --output-dir OUTPUT_DIR
                         Name of output directory for model checkpoints (default: models)
 ```
-
-### Evaluate texts with the classification models
