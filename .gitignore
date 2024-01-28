@@ -3,3 +3,5 @@ config.py
 *~*
 google-cloud-sdk
 *.ipynb_checkpoints
+cloud.txt
+.vscode/
