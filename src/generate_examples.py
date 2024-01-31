@@ -77,13 +77,16 @@ def get_examples(construction, create_negative_examples=True):
         msg_content = response.choices[0].message.content
         print(f'{msg_content}\n\n')
         # in case there are two lines (one being the original example, the other being the rewritten example)
-        pattern = r"((Original|A):.*\n|(?<=\d\.).*\n\s*-)"
+        pattern = r"((\S*Original\S*|A).*:.*\n|(?<=\d\.).*\n\s*-)"
         msg_content = re.sub(pattern, "", msg_content)
         # removes numbers and prefixes of the example
         pattern = r"^\d+\.\s+(.+:.)?(.*)"
         matches = re.findall(pattern, msg_content, re.MULTILINE)
         negative_examples = [match[1] for match in matches]
         print(negative_examples)
+    if positive_examples == negative_examples: # probably caused by parsing errors
+        negative_examples = []
+    # TODO: remove explanations in parenthesis or extract sentences encapuslated by ""
     return positive_examples, negative_examples
 
 # iterate through rows of egp_samples
@@ -91,7 +94,7 @@ def get_examples(construction, create_negative_examples=True):
 # while the above condition is true, generate examples_per_batch more positive and negative examples, append it to the array and save the file
 target_number = args.batches * args.examples_per_batch
 for index, row in egp_samples.iterrows():
-    while len(row['augmented_examples']) < target_number:
+    while len(row['augmented_negative_examples']) < target_number:
         try:
             create_negative_examples = len(row['augmented_negative_examples']) < int(target_number * args.negative_ratio)
             positive_examples, negative_examples = get_examples(row, create_negative_examples)
