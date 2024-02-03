@@ -119,9 +119,9 @@ for index, row in egp_samples.iterrows():
         continue
     print(row['#'])
     print(len(row['augmented_examples']))
-    while len(row['augmented_examples']) < target_number:
+    while len(set(row['augmented_examples'])) < target_number: # looking for unique examples
         try:
-            create_negative_examples = len(row['augmented_negative_examples']) < int(target_number * args.negative_ratio)
+            create_negative_examples = len(set(row['augmented_negative_examples'])) < int(target_number * args.negative_ratio)
             positive_examples, negative_examples, positive_response, negative_response = get_examples(row, create_negative_examples)
 
             source_number = random.randint(1, 1000000)
