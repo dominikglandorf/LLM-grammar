@@ -2,7 +2,8 @@
 import argparse
 parser = argparse.ArgumentParser(description='Full training for EGP classification')
 parser.add_argument('--input-file', type=str, default='../dat/egp_merged.json', help='Name of input file in folder dat (default: egp_merged.json)')
-parser.add_argument('--level', type=str, default="A1", help='Level of constructs to train')
+parser.add_argument('--output-folder', type=str, default='../models/classifiers', help='Name of output folder for models (default: ../models/classifiers)')
+parser.add_argument('--level', type=str, default="A1", help='Level of constructs to detect')
 args = parser.parse_args()
 
 import pandas as pd
@@ -10,7 +11,6 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset, DataLoader
 from transformers import BertModel, BertTokenizer
-from sklearn.metrics import precision_score, recall_score
 import random
 from tqdm import tqdm
 import os
@@ -23,7 +23,6 @@ np.random.seed(config.SEED)
 random.seed(config.SEED)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-df = pd.read_json('../dat/egp_merged.json')
 
 class SentenceDataset(Dataset):
     def __init__(self, sentences, labels, tokenizer, max_len):
@@ -117,7 +116,8 @@ def train(model, dataloaders, lr=0.0001, num_epochs=3):
         num_batches = len(dataloaders[0])
         total_loss = train_steps = 0
 
-        for batches in tqdm(train_loaders, total=num_batches):
+        loaders = zip(*dataloaders)
+        for batches in tqdm(loaders, total=num_batches):
             for task_id, batch in enumerate(batches):
                 input_ids = batch['input_ids'].to(device)
                 attention_mask = batch['attention_mask'].to(device)
@@ -133,19 +133,19 @@ def train(model, dataloaders, lr=0.0001, num_epochs=3):
             optimizer.zero_grad()
         
         avg_train_loss = total_loss / train_steps
-        train_losses.append(avg_train_loss)
         print(f'Training loss: {avg_train_loss}')
 
-def train_level_model(level="A1", max_constructs=500, batch_size=8):
+def train_level_model(level="A1", max_constructs=500, batch_size=8, num_epochs=5):
     print(f"Level {level}")
+    df = pd.read_json('../dat/egp_merged.json')
     df_level = df[df['Level'] == level]
     num_classifiers = min(len(df_level), max_constructs)
     backbone_model = BertModel.from_pretrained('bert-base-uncased', cache_dir=config.CACHE_DIR)
     task_heads = [NonlinearTaskHead(backbone_model.config.hidden_size, 2) for _ in range(num_classifiers)]
     multi_task_model = MultiTaskBERT(backbone_model, task_heads).to(device)
-    datasets = [get_dataset(df_level.iloc[idx], tokenizer, max_len) for idx in tqdm(range(num_classifiers))]
+    datasets = [get_dataset(df_level.iloc[idx], tokenizer, max_len, df) for idx in tqdm(range(num_classifiers))]
     dataloaders = [DataLoader(dataset, batch_size=batch_size, shuffle=True) for dataset in datasets]
-    train(multi_task_model, dataloaders, verbose=False, num_epochs=5)
-    torch.save(multi_task_model.state_dict(), '../models/bert/multi_task_model_state_dict_' + level + '.pth')
+    train(multi_task_model, dataloaders, num_epochs=num_epochs)
+    torch.save(multi_task_model.state_dict(), f'{args.output_folder}/multi_task_model_state_dict_' + level + '.pth')
 
-train_level_model(args.level, max_constructs=5)
+train_level_model(args.level, max_constructs=500, num_epochs=5)

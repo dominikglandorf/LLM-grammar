@@ -1,4 +1,5 @@
 OPENAI_API_KEY=""
 OPENAI_MODEL="gpt-3.5-turbo"
+GENERATION_MODEL="mistralai/Mistral-7B-Instruct-v0.2"
 PATH_TO_GCP_CREDS=""
 SEED=26
