@@ -50,9 +50,19 @@ def generate_candidate(input_ids, max_token_sentence = 64, tok_k=10, eos_chars =
 
     return tokenizer.decode(generated_tokens[0], skip_special_tokens=True)
 
+description = {
+    "C2": "Can produce clear, smoothly flowing, complex texts in an appropriate and effective style and a logical structure which helps the reader identify significant points.",
+    "C1": "Can produce clear, well-structured texts of complex subjects, underlining the relevant salient issues, expanding and supporting points of view at some length with subsidiary points, reasons and relevant examples, and rounding off with an appropriate conclusion.",
+    "B2": "Can produce clear, detailed texts on a variety of subjects related to their field of interest, synthesising and evaluating information and arguments from a number of sources.",
+    "B1": "Can produce straightforward connected texts on a range of familiar subjects within their field of interest, by linking a series of shorter discrete elements into a linear sequence.",
+    "A2": "Can produce a series of simple phrases and sentences linked with simple connectors like “and”, “but” and “because”.",
+    "A1": "Can give information about matters of personal relevance (e.g. likes and dislikes, family, pets) using simple words/signs and basic expressions. Can produce simple isolated phrases and sentences."
+}
+
 def write_story(level, story, num_candidates=3, max_len = 1024, add_info=False):
-    info = f", which is described as {description[level]}" if add_info else ""
-    prompt = f"<s>[INST] Continue the writing on CEFR level {level}{info}. Do not talk about the CEFR level. [/INST] "
+    info = f"({level} means: {description[level]})" if add_info else ""
+    prompt = f"<s>[INST] Continue the writing using as many grammar constructs on CEFR level {level} as possible {info}. Do not talk about the CEFR level.[/INST] "
+    print(prompt + story)
     while len(story) < max_len:
         inputs = tokenizer(prompt + story, return_tensors="pt").to(device)
         candidates = [generate_candidate(inputs.input_ids) for i in range(num_candidates)]
@@ -67,13 +77,18 @@ def write_story(level, story, num_candidates=3, max_len = 1024, add_info=False):
 cefr_texts = pd.read_csv('../dat/' + args.input_file)
 storyPrompts = cefr_texts.text.apply(lambda text: text[:text.find(' ', args.prompt_length)].strip().lstrip('\ufeff')).unique()
 random.shuffle(storyPrompts)
+if os.path.exists('../dat/' + args.output_file):
+    output_df = pd.read_csv('../dat/' + args.output_file)
+else:
+    output_df = pd.DataFrame()
 
 for story in storyPrompts[:args.num_stories]:
     print("_" * 100)
     print(story)
     for level in level_models.keys():
         print(level)
-        text = write_story(level, story, args.num_candidates, add_info=False)
+        if len(output_df) and len(output_df.loc[(output_df['label']==level) & (output_df['story']==story)]) > 0: continue
+        text = write_story(level, story, args.num_candidates, add_info=True)
         print(text)
         new_row = {"label": level, "story": story, "text": text}
         pd.DataFrame([new_row]).to_csv('../dat/' + args.output_file, mode='a', index=False, header=not os.path.exists('../dat/' + args.output_file))
