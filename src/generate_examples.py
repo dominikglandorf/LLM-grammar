@@ -1,21 +1,5 @@
-import pandas as pd
-import re
-import sys
-import os
-import re
 import argparse
-import random
-import signal
-
-sys.path.append(os.path.dirname(os.getcwd()))
-import config
-from openai import OpenAI
-client = OpenAI(api_key=config.OPENAI_API_KEY)
-
-DATA_PATH = '../dat/'
-
-# Argument parser
-parser = argparse.ArgumentParser(description='Data augmentation for EGP with GPT.')
+parser = argparse.ArgumentParser(description='Data augmentation for the EGP')
 parser.add_argument('--examples-per-batch', type=int, default=20, help='Positive and negative examples per batch (default: 20)')
 parser.add_argument('--batches', type=int, default=3, help='Batches (default: 3)')
 parser.add_argument('--samples-per-level', type=int, default=1, help='Samples per CEFR level (default: 1)')
@@ -27,11 +11,23 @@ parser.add_argument('--max-nr', type=int, default=1222, help='Minimum construct 
 parser.add_argument('--level', type=str, default=None, help='Level to consider for generation (default: all')
 args = parser.parse_args()
 
-def signal_handler(sig, frame):
-    print('You pressed Ctrl+C! Exiting gracefully.')
-    sys.exit(0)
+import pandas as pd
+import re
+import sys
+import os
+import re
+import argparse
+import random
 
-signal.signal(signal.SIGINT, signal_handler)
+sys.path.append(os.path.dirname(os.getcwd()))
+import config
+from openai import OpenAI
+client = OpenAI(api_key=config.OPENAI_API_KEY)
+
+DATA_PATH = '../dat/'
+SYSTEM_PROMPT = "You are a helpful assistant."
+NEGATIVE_PROMPT = "Rewrite each created example as a minimal pair that does not show the usage of the given rule."
+
 
 # Check if output already exists
 if os.path.exists(DATA_PATH + args.output_file):
@@ -39,7 +35,7 @@ if os.path.exists(DATA_PATH + args.output_file):
 else:
     egp = pd.read_csv('../dat/' + args.input_file, index_col=0)
     egp_samples = egp
-    #egp_samples = egp.groupby(['Level', 'type'], group_keys=False).apply(lambda x: x.sample(min(len(x), args.samples_per_level), random_state=config.SEED+3))
+    #egp_samples = egp.groupby(['Level', 'type'], group_keys=False).apply(lambda x: x.sample(min(len(x), args.samples_per_level), random_state=config.SEED))
     egp_samples['Example'] = egp_samples['Example'].str.replace(r"\(.*\)", "", regex=True).str.strip()
 
     def get_prompt(construction):
@@ -70,7 +66,7 @@ else:
 def get_examples(construction, create_negative_examples=True):
     print(construction['prompt'])
     messages = [
-        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "user", "content": construction['prompt']}
     ]
     response = client.chat.completions.create(model=config.OPENAI_MODEL, messages=messages, presence_penalty=0.5, max_tokens=4095)
@@ -88,7 +84,7 @@ def get_examples(construction, create_negative_examples=True):
     negative_examples = []
     negative_response = ""
     if create_negative_examples:
-        messages.append({"role": "user", "content": "Rewrite each created example as a minimal pair that does not show the usage of the given rule."})
+        messages.append({"role": "user", "content": NEGATIVE_PROMPT})
         response = client.chat.completions.create(model=config.OPENAI_MODEL, messages=messages, temperature=0.4)
         msg_content = response.choices[0].message.content
         negative_response = msg_content
@@ -109,7 +105,7 @@ def get_examples(construction, create_negative_examples=True):
     return positive_examples, negative_examples, positive_response, negative_response
 
 # iterate through rows of egp_samples
-# check if the number of augmented_examples < args.batches * args.examples_per_batch
+# check if the number of unique augmented_examples < args.batches * args.examples_per_batch
 # while the above condition is true, generate examples_per_batch more positive and negative examples, append it to the array and save the file
 target_number = args.batches * args.examples_per_batch
 for index, row in egp_samples.iterrows():
