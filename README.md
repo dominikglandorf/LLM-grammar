@@ -8,7 +8,7 @@ This project about using LLMs for grammar-controlled educational text generation
 The project provides 946K generated example sentences for all 1,222 EGP entries (at least 500 positives and 250 negatives). Note that these are automatically generated. The quality estimate revealed that 87.1% can be assumed to be correctly labeled. The entire dataset can be found in the main directory under `EGP_examples.json`.
 
 # Models
-There are six trained classifcation models in the folder `models`, one per CEFR level. For an example on how to use them, see the functions `load_model` and `get_scores` in `/source/models.py`.
+There are six trained classifcation models that need to be in the folder `models/classifiers`, one per CEFR level. You can download them from [Google Drive](https://drive.google.com/drive/folders/1irw6tERfxQP8j0dtZvd4DE2xHpCMJAue?usp=sharing). For an example on how to use them, see the functions `load_model` and `get_scores` in `/source/models.py`.
 
 # Running the experiments and scripts
 
